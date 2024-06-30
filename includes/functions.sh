@@ -599,13 +599,31 @@ function launch_service() {
   line=$1
   log_write "Installation de ${line}" >/dev/null 2>&1
   error=0
-  tempsubdomain=$(get_from_account_yml sub.${line}.${line})
-  if [ "${tempsubdomain}" = notfound ]; then
-    subdomain_unitaire ${line}
-  fi
-  tempauth=$(get_from_account_yml sub.${line}.auth)
-  if [ "${tempauth}" = notfound ]; then
-    auth_unitaire ${line}
+
+  # Vérifie la présence de "traefik_labels_enabled: false" dans le fichier
+  grep "traefik_labels_enabled: false" "${SETTINGS_SOURCE}/includes/dockerapps/vars/${line}.yml" >/dev/null 2>&1
+  if [ $? -eq 1 ]; then
+    tempsubdomain=$(get_from_account_yml sub.${line}.${line})
+    if [ "${tempsubdomain}" = notfound ]; then
+      subdomain_unitaire ${line}
+    fi
+    tempauth=$(get_from_account_yml sub.${line}.auth)
+    if [ "${tempauth}" = notfound ]; then
+      auth_unitaire ${line}
+    fi
+  else
+    # Vérifie également la présence de "labels" dans le fichier si "traefik_labels_enabled: false" est trouvé
+    grep "labels:" "${SETTINGS_SOURCE}/includes/dockerapps/vars/${line}.yml" >/dev/null 2>&1
+    if [ $? -eq 0 ]; then
+      tempsubdomain=$(get_from_account_yml sub.${line}.${line})
+      if [ "${tempsubdomain}" = notfound ]; then
+        subdomain_unitaire ${line}
+      fi
+      tempauth=$(get_from_account_yml sub.${line}.auth)
+      if [ "${tempauth}" = notfound ]; then
+        auth_unitaire ${line}
+      fi
+    fi
   fi
 
   if [[ "${line}" == "plex" ]]; then
@@ -682,7 +700,7 @@ function suppression_appli() {
   docker rm -f "$APPSELECTED" >/dev/null 2>&1
   if [ $DELETE -eq 1 ]; then
     log_write "Suppresion de ${APPSELECTED}, données supprimées" >/dev/null 2>&1
-    sudo rm -rf ${SETTINGS_STORAGE}/docker/${USER}/$APPSELECTED
+    sudo rm -rf ${SETTINGS_STORAGE}/docker/${USER}/$APPSELECTED >/dev/null 2>&1
   else
     log_write "Suppresion de ${APPSELECTED}, données conservées" >/dev/null 2>&1
   fi
@@ -729,9 +747,6 @@ function suppression_appli() {
   vinkunja)
     docker rm -f vikunja-api >/dev/null 2>&1
     ;;
-  dmm)
-    docker rm -f tor >/dev/null 2>&1
-    ;;
   zurg)
     sudo rm -rf ${SETTINGS_STORAGE}/docker/${USER}/zurg
     ;;
@@ -750,9 +765,22 @@ function suppression_appli() {
     docker rm -f nginx piped-frontend piped-backend postgres piped-proxy hyperpipe-backend hyperpipe-frontend >/dev/null 2>&1
     manage_account_yml sub.piped " "
     ;;
-  qdebrid)
-   sudo rm -rf /home/$USER/scripts/qdebrid
+  jellygrail)
+   sudo fusermount -uz ${SETTINGS_STORAGE}/docker/${USER}/jellygrail/Video_Library
+   sudo fusermount -uz ${SETTINGS_STORAGE}/docker/${USER}/jellygrail/Video_Library
+   sudo rm -rf ${SETTINGS_STORAGE}/docker/${USER}/jellygrail
     ;;
+  espocrm*)
+   sudo rm -rf ${SETTINGS_STORAGE}/docker/${USER}/mysql
+   sudo rm -rf ${SETTINGS_STORAGE}/docker/${USER}/espocrm >/dev/null 2>&1
+   docker rm -f espocrm espocrm-websocket espocrm-daemon mysql >/dev/null 2>&1
+    ;;
+  paperless)
+   sudo rm -rf ${SETTINGS_STORAGE}/docker/${USER}/mariadb
+   sudo rm -rf ${SETTINGS_STORAGE}/docker/${USER}/paperless >/dev/null 2>&1
+   sudo rm -rf ${SETTINGS_STORAGE}/docker/${USER}/redis >/dev/null 2>&1
+   docker rm -f mariadb paperless broker >/dev/null 2>&1
+  ;;
   esac
 
   if docker ps | grep -q db-$APPSELECTED; then
@@ -927,7 +955,9 @@ function premier_lancement() {
     configparser \
     inquirer \
     jsons \
-    colorama 
+    colorama \
+    requests==2.31
+  # requests bloqué sur version 2.31 au 28/05/2024, jusqu'à résolution
 
   ##########################################
   # Pas de configuration existante
@@ -1413,45 +1443,6 @@ function apply_patches() {
   done
 }
 
-function sortie_cloud() {
-  echo $(gettext "Attention, cette fonction n'est à utiliser que si vous n'utilisez plus de stockage cloud")
-  echo $(gettext "Appuyez sur CTRL^C si vous souhaitez annuler")
-  pause
-  ansible-playbook "${SETTINGS_SOURCE}/includes/config/roles/backup/tasks/remove.yml"
-  sudo systemctl disable cloudplow
-  sudo systemctl stop cloudplow
-  sudo systemctl disable rclone
-  sudo systemctl stop rclone
-  sudo systemctl restart mergerfs
-  relance_tous_services
-}
-
-function install_qdebrid() {
-  clear
-  logo 
-  echo -e "${BLUE}"$(gettext "Pour assurer le bon fonctionnement de Qdebrid")"${CEND}"                     
-  echo -e "${BLUE}"$(gettext "l'installation des applications Radarr et Sonarr est indispensable")"${CEND}"
-  echo -e "${BLUE}"$(gettext "Si elles ne sont pas déjà installées, elles le seront.")"${CEND}"                             
-  echo ""
-  sleep 2s
-  suppression_appli qdebrid 1
-  for service in sonarr radarr; do
-    if docker ps | grep -q "$service"; then
-      api=$(head -n 7 "${SETTINGS_STORAGE}/docker/$USER/$service/config/config.xml" | tail -n 1 | cut -c11-42)
-    else
-      echo -e "\e[36mInstallation de ${service} \e[0m"
-      launch_service "$service"
-      sleep 5s
-      api=$(head -n 7 "${SETTINGS_STORAGE}/docker/$USER/$service/config/config.xml" | tail -n 1 | cut -c11-42)
-    fi
-    manage_account_yml "sub.$service.api" "$api"
-  done
-  echo -e "\e[36m"$(gettext "Installation Qdebrid")"\e[0m"
-  ansible-playbook "${SETTINGS_SOURCE}/includes/config/playbooks/qdebrid.yml"
-  echo -e "\n"$(gettext "Appuyer sur")"${CCYAN} ["$(gettext "ENTREE")"]${CEND}" $(gettext "pour continuer")
-  read -r
-}
-
 function install_zurg() {
   update_release_zurg
   ARCHITECTURE=$(dpkg --print-architecture)
@@ -1504,7 +1495,9 @@ function create_folders() {
   echo ""
   create_dir "${HOME}/local"
   create_dir "${HOME}/local/radarr"
+  create_dir "${HOME}/local/radarr4k"
   create_dir "${HOME}/local/sonarr"
+  create_dir "${HOME}/local/sonarr4k"
   create_dir "${HOME}/Medias"
   echo -e "\e[36m"$(gettext "Noms de dossiers à créer dans Medias ex: Films, Series, Films d'animation etc .. [Enter] | Taper stop une fois terminé")"\e[0m"		
   while :
@@ -1521,22 +1514,6 @@ function create_folders() {
 function install_gluetun {
   source ${SETTINGS_SOURCE}/includes/config/scripts/gluetun.sh
   launch_service gluetun
-}
-
-function install_dmm() {
-  DMM_TOKEN=$(get_from_account_yml dmm.token)
-  if [ ${DMM_TOKEN} == notfound ]; then
-    echo >&2 -n -e "${BLUE}"$(gettext "Token MYSQL pour Debridmediamanager | Appuyer sur [Enter] :") "${CEND}"
-    read DMM_TOKEN
-    manage_account_yml dmm.token "${DMM_TOKEN}"
-  else
-    echo -e "${BLUE}"$(gettext "Mysql debridmediamanager déjà renseigné")"${CEND}"
-  fi
-
-# installation debridmediamanager
-  ansible-playbook ${SETTINGS_SOURCE}/includes/dockerapps/dmm.yml
-  echo -e "\n"$(gettext "Appuyer sur")"${CCYAN} ["$(gettext "ENTREE")"]${CEND}" $(gettext "pour continuer")
-  read -r
 }
 
 function update_release_zurg() {
@@ -1604,13 +1581,13 @@ function liste_perso() {
   echo -e "${CRED}-----------------------------------------------------------${CEND}"
   echo -e "${CCYAN}"$(gettext "Liste des applis déjà personnalisées")"${CEND}"                     
   echo -e "${CCYAN}"$(gettext "Vous pouvez à tout moment décider de modifier les fichiers")"${CEND}"
-  echo -e "${CCYAN}"$(gettext "Relancer ensuite le container")"${CEND}"                             
+  echo -e "${CCYAN}"$(gettext "Réinitialiser ensuite le container")"${CEND}"                             
   echo -e "${CRED}-----------------------------------------------------------${CEND}"
   echo ""
 
   folder_path="${SETTINGS_STORAGE}/vars"
   files=$(ls -p "$folder_path" | grep -v /)
-  echo -e "\e[32m"$(gettext "Applications Personnalisées")"\e[0m"
+  echo -e "\e[32m"$(gettext "Applications Personnalisées : ")"\e[0m"
   if [ -n "$files" ]; then
     echo -e "\e[36m$files\e[0m"
     echo
@@ -1625,19 +1602,20 @@ function applis_perso_create() {
   logo
   liste_perso
   # Liste des fichiers déjà personnalisés
-  echo "####################################################"
-  echo "ATTENTION"
-  echo $(gettext "Cette fonction va copier/créer les fichiers yml choisis")
-  echo $(gettext "Afin de pouvoir les personnaliser")
-  echo $(gettext "Mais ne lancera pas les services associés")
-  echo "####################################################"
+
+  echo -e "${CRED}-----------------------------------------------------------${CEND}"
+  echo -e "${CCYAN}"ATTENTION !!"${CEND}"                     
+  echo -e "${CCYAN}"$(gettext "Cette fonction va copier/créer les fichiers yml choisis")"${CEND}"                     
+  echo -e "${CCYAN}"$(gettext "Afin de pouvoir les personnaliser")"${CEND}"
+  echo -e "${CCYAN}"$(gettext "Mais ne lancera pas les services associés")"${CEND}"                             
+  echo -e "${CRED}-----------------------------------------------------------${CEND}"
   echo ""
-  
+
   # Nouvelle appli
-  echo -e "\e[32m"$(gettext "Configurer une nouvelle application ? (y/n)") "\e[0m"
+  echo >&2 -n -e "\e[36m"$(gettext "Configurer une nouvelle application ? (y/n) : ")"\e[0m"
   read choice
   if [[ "$choice" = "Y" ]] || [[ "$choice" = "y" ]]; then
-    echo >&2 -n -e "\e[36m"$(gettext "Nouvelle Appli à personnaliser :")"\e[0m"
+    echo >&2 -n -e "\e[36m"$(gettext "Nouvelle Appli à personnaliser : ")"\e[0m"
     read NOUVELLE
     echo ""
       echo -e "\e[32m"$(gettext "Application non référencée dans la base existante,")"\e[0m \e[36m${NOUVELLE}.yml\e[0m \e[32m"$(gettext "a été créée ds le dossier") "${SETTINGS_STORAGE}vars.\e[0m" 

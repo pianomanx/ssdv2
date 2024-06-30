@@ -14,12 +14,14 @@ cloudcmd - Gestionnaire de fichiers pour le web
 codif -  VS Code exécuté sur un serveur distant
 cops - COPS est lié à vos données Calibre
 cypht - Centraliser plusieurs comptes mails
+dashdot - System Health intégrable avec Homarr
 davos - Outils de programmation
 deemixrr - Streamer de la musique depuis deezer
 deluge - Gestionnaire de torrent
 digikam - Gestion de photos numériques
 dozzle - Affichage des logs de conteneurs
 duplicati - Application de sauvegarde
+espocrm - Customer Relationship Management
 emby - Serveur multimédia
 fenrus - Passerelle vers le monde des sorciers
 filebot - Organiser vos films, séries et anime
@@ -29,20 +31,25 @@ firefox - Un navigateur dans votre navigateur
 firefoxsyncserver - Navigateur Firefox
 foptimum - Performances serveur
 freshrss - Agrégateur de flux open source
-gethomePage - Gestion d'application
+gethomepage - Gestion d'application
 gitea - Hébergement de développement logiciel
 gitlab - Hébergement de développement logiciel
 glftpd - Serveur FTP
+goaccess - Visual Web Log Analyzer
 gotify - Envoyer et recevoir des messages
 grocy - Gestion de recettes
 guacamole - Accès à distance via portail Web
 handbrake - Transcoder une source vidéo
 heimdall - Organiser vos applications Web
+homarr - A simple powerful dashboard
+imagmaid - Plex Image Cleanup
 jackett - Indexeur de scraping
 jackettstremio - Indexeur de scraping
 jackettvpn - Indexeur de scraping
 jdownloader - Gestionnaire de téléchargements
+jellyseerr - Gestion de contenu Plex/Emby
 jellyfin - Serveur multimédia
+jellygrail - Serveur Webdav Real Debrid 
 jfago - Gestion des utilisateurs Jellyfin
 jitsi - Plateformes de visioconférence
 kasm - Streaming de conteneurs Docker
@@ -79,6 +86,7 @@ openvpn - Protocole de chiffrement de VPN
 organizr - Gestion des applications
 overseerr -  Gestion de contenu Plex/Emby
 pastebin - Mettre en ligne du texte
+paperless - Document management system
 petio - Gestion de contenu Plex/Emby
 picapport - Serveur photo avec galerie Web
 pingvin - Partage de fichiers auto-hébergée
@@ -127,6 +135,7 @@ transmission - Gestionnaire de torrent
 transmissionvpn - Gestionnaire de torrent VPN
 ttrss - Agrégateur de flux d'actualités
 ubooquity - Gestion ebooks
+usenet - Un gestionnaire de nzb
 varken - Ecosystème Plex dans InfluxDB/Grafana
 vaultwarden - Serveur compatible Bitwarden
 vikunja - Application de liste de tâches
